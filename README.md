@@ -6,6 +6,8 @@
 
 # Welcome to `testrpc`
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/trufflesuite/testrpc-core.svg)](https://greenkeeper.io/)
+
 `testrpc` is a Node.js based Ethereum client for testing and development. It uses ethereumjs to simulate full client behavior and make developing Ethereum applications much faster. It also includes all popular RPC functions and features (like events) and can be run deterministically to make development a breeze.
 
 # INSTALL
