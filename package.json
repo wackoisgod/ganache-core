@@ -1,6 +1,6 @@
 {
   "name": "ganache-core",
-  "version": "1.0.2-wacko",
+  "version": "1.0.4-wacko",
   "main": "./index.js",
   "directories": {
     "lib": "./lib"
@@ -38,7 +38,7 @@
     "web3-provider-engine": "~8.1.0",
     "webpack": "^2.2.1",
     "yargs": "^7.0.2",
-    "swarmhash": "~0.1.0"
+    "swarmhash": "git+https://git@github.com/wackoisgod/swarmhash.git"
   },
   "repository": {
     "type": "git",
