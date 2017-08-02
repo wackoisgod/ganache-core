@@ -1,6 +1,6 @@
 {
   "name": "ganache-core",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "./index.js",
   "directories": {
     "lib": "./lib"
@@ -37,7 +37,8 @@
     "web3": "^0.18.2",
     "web3-provider-engine": "~8.1.0",
     "webpack": "^2.2.1",
-    "yargs": "^7.0.2"
+    "yargs": "^7.0.2",
+    "swarmhash": "~0.1.0"
   },
   "repository": {
     "type": "git",
