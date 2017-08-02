@@ -1,6 +1,6 @@
 {
   "name": "ganache-core",
-  "version": "1.0.2",
+  "version": "1.0.2-wacko",
   "main": "./index.js",
   "directories": {
     "lib": "./lib"
