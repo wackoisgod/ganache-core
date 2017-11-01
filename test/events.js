@@ -9,7 +9,7 @@ pragma solidity ^0.4.2;             \
 contract EventTest {                \
   event ExampleEvent(uint indexed first, uint indexed second);   \
                                     \
-  function triggerEvent(uint _first, uint _second) { \
+  function triggerEvent(uint _first, uint _second) public { \
     ExampleEvent(_first, _second);      \
   }                                 \
 }"
@@ -39,9 +39,9 @@ var tests = function(web3, EventTest) {
         throw new Error(result.errors[0]);
       }
 
-      var abi = JSON.parse(result.contracts.EventTest.interface);
+      var abi = JSON.parse(result.contracts[":EventTest"].interface);
       EventTest = web3.eth.contract(abi);
-      EventTest._data = "0x" + result.contracts.EventTest.bytecode;
+      EventTest._data = "0x" + result.contracts[":EventTest"].bytecode;
     });
 
     before(function(done) {
@@ -83,7 +83,7 @@ var tests = function(web3, EventTest) {
 
     it("handles events properly, using `event.get()`", function(done) {
       this.timeout(10000)
-      var expected_value = 5;
+      var expected_value = 6;
       var interval;
 
       var event = instance.ExampleEvent({first: expected_value});
@@ -98,7 +98,7 @@ var tests = function(web3, EventTest) {
         });
       }
 
-      instance.triggerEvent(5, 7, {from: accounts[0]}, function(err, result) {
+      instance.triggerEvent(6, 7, {from: accounts[0]}, function(err, result) {
         if (err) return cleanup(err);
 
         interval = setInterval(function() {
@@ -127,6 +127,24 @@ var tests = function(web3, EventTest) {
 
         event.stopWatching(function(err) {
           if (err) return done(err);
+          assert(logs.length == 1);
+          done();
+        });
+      });
+    });
+
+    // NOTE! This test relies on the events triggered in the tests above.
+    it("accepts an array of topics as a filter", function(done) {
+      var expected_value_a = 5;
+      var expected_value_b = 6;
+      var event = instance.ExampleEvent({first: [expected_value_a, expected_value_b]}, {fromBlock: 0});
+
+      event.get(function(err, logs) {
+        if (err) return done(err);
+
+        event.stopWatching(function(err) {
+          if (err) return done(err);
+
           assert(logs.length == 2);
           done();
         });
@@ -244,6 +262,29 @@ var tests = function(web3, EventTest) {
       event.get(function(err, logs) {
         if (err) return done(err);
         assert(logs.length == 1);
+        done();
+      });
+    });
+
+    it("will return an empty array if logs are requested when fromBlock doesn't exist", function(done) {
+      var event = instance.ExampleEvent({}, {fromBlock: 100000});
+
+      // fromBlock doesn't exist, hence no logs.
+      event.get(function(err, logs) {
+        if (err) return done(err);
+        assert(logs.length == 0);
+        done();
+      });
+    });
+
+    it("will return an empty array if logs are requested when toBlock doesn't exist", function(done) {
+      var expected_value = 6;
+      var event = instance.ExampleEvent({}, {toBlock: 100000});
+
+      // fromBlock doesn't exist, hence no logs.
+      event.get(function(err, logs) {
+        if (err) return done(err);
+        assert(logs.length == 0);
         done();
       });
     });

@@ -6,6 +6,7 @@ var TestRPC = require("../index.js");
 var solc = require("solc");
 var fs = require("fs");
 var to = require("../lib/utils/to");
+var clone = require("clone");
 
 var source = fs.readFileSync("./test/Example.sol", {encoding: "utf8"});
 var result = solc.compile(source, 1);
@@ -32,9 +33,9 @@ process.removeAllListeners("uncaughtException");
 // make sure to update the resulting contract data with the correct values.
 var contract = {
   solidity: source,
-  abi: result.contracts.Example.interface,
-  binary: "0x" + result.contracts.Example.bytecode,
-  runtimeBinary: '0x' + result.contracts.Example.runtimeBytecode,
+  abi: result.contracts[":Example"].interface,
+  binary: "0x" + result.contracts[":Example"].bytecode,
+  runtimeBinary: '0x' + result.contracts[":Example"].runtimeBytecode,
   position_of_value: "0x0000000000000000000000000000000000000000000000000000000000000000",
   expected_default_value: 5,
   call_data: {
@@ -52,13 +53,18 @@ var contract = {
 
 var tests = function(web3) {
   var accounts;
+  var personalAccount;
 
   before(function(done) {
     web3.eth.getAccounts(function(err, accs) {
       if (err) return done(err);
 
       accounts = accs;
-      done();
+
+      web3.personal.newAccount("password", function(err, result) {
+        personalAccount = result;
+        done();
+      });
     });
   });
 
@@ -159,7 +165,7 @@ var tests = function(web3) {
           sha3Uncles: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347',
           logsBloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
           transactionsRoot: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421',
-          stateRoot: '0x484475ce2cad3b248148f8e0ed8b1a65da0b7d6b541ab5c6ef9393477724a619',
+          stateRoot: '0xbb762ad4242c8c2821f7ac9c0a0a7da9f073cfeed39129d4bafa9168118c3b3a',
           receiptRoot: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421',
           miner: '0x0000000000000000000000000000000000000000',
           difficulty: { s: 1, e: 0, c: [ 0 ] },
@@ -270,11 +276,20 @@ var tests = function(web3) {
         web3.eth.getBlock("latest", true, function(err, block) {
           if (err) return done(err);
           web3.eth.getBlockTransactionCount(block.number , function(err, blockTransactionCount) {
+            if (err) return done(err);
             assert.equal(block.transactions.length, blockTransactionCount, "Block transaction count should be 1.");
             assert.equal(1, blockTransactionCount, "Block transaction count should be 1.");
             done();
           });
         });
+      });
+    });
+
+    it("should return 0 transactions when the block doesn't exist", function(done) {
+      web3.eth.getBlockTransactionCount(1000000, function(err, blockTransactionCount) {
+        if (err) return done(err);
+        assert.equal(0, blockTransactionCount,  "Block transaction count should be 0.");
+        done();
       });
     });
   });
@@ -510,6 +525,26 @@ var tests = function(web3) {
       });
     });
 
+    it("should get back a runtime error on a bad call (eth_call)", function(done) {
+      var call_data = clone(contract.call_data);
+      call_data.to = contractAddress;
+      call_data.from = accounts[0];
+
+      // TODO: Removing this callback hell would be nice.
+      web3.eth.estimateGas(call_data, function (err, result) {
+        if (err) return done(err);
+        // set a low gas limit to force a runtime error
+        call_data.gas = result - 1;
+
+        web3.eth.call(call_data, function (err, result) {
+          // should have received an error
+          assert(err, "did not return runtime error");
+          assert.equal(err.message, "VM Exception while processing transaction: out of gas", "did not receive an 'out of gas' error.")
+          done();
+        });
+      });
+    });
+
     it("should be able to make a call from an address not in the accounts list (eth_call)", function(done) {
       var from = "0x1234567890123456789012345678901234567890";
 
@@ -545,7 +580,7 @@ var tests = function(web3) {
 
     it("should represent the block number correctly in the Oracle contract (oracle.blockhash0)", function(done){
       var oracleSol = fs.readFileSync("./test/Oracle.sol", {encoding: "utf8"});
-      var oracleOutput = solc.compile(oracleSol).contracts.Oracle
+      var oracleOutput = solc.compile(oracleSol).contracts[":Oracle"]
       web3.eth.contract(JSON.parse(oracleOutput.interface)).new({ data: oracleOutput.bytecode, from: accounts[0], gas: 3141592 }, function(err, oracle){
         if(err) return done(err)
         if(!oracle.address) return
@@ -575,7 +610,7 @@ var tests = function(web3) {
 
         web3.eth.estimateGas(tx_data, function(err, result) {
           if (err) return done(err);
-          assert.equal(result, 27684);
+          assert.equal(result, 27682);
 
           web3.eth.getBlockNumber(function(err, result) {
             if (err) return done(err);
@@ -596,7 +631,7 @@ var tests = function(web3) {
 
       web3.eth.estimateGas(tx_data, function(err, result) {
         if (err) return done(err);
-        assert.equal(result, 27684);
+        assert.equal(result, 27682);
         done();
       });
     });
@@ -610,7 +645,7 @@ var tests = function(web3) {
 
       web3.eth.estimateGas(tx_data, function(err, result) {
         if (err) return done(err);
-        assert.equal(result, 27684);
+        assert.equal(result, 27682);
         done();
       });
     });
@@ -752,6 +787,16 @@ var tests = function(web3) {
       });
     });
 
+    it("should return null if transaction doesn't exist (eth_getTransactionByHash)", function(done) {
+      web3.eth.getTransaction("0x401b8ebb563ec9425b052aba8896cb74e07635563111b5a0663289d1baa8eb12", function(err, result) {
+        if (err) return done(err);
+
+        assert.equal(result, null, "Receipt should be null");
+
+        done();
+      });
+    });
+
     it("should verify there's code at the address (eth_getCode)", function(done) {
       web3.eth.getCode(contractAddress, function(err, result) {
         if (err) return done(err);
@@ -773,6 +818,17 @@ var tests = function(web3) {
         assert.equal(result.hash, initialTransaction);
         assert.equal(result.blockNumber, blockNumber);
         assert.equal(result.blockHash, blockHash);
+        done();
+      });
+    });
+
+    it("should return null if block doesn't exist (eth_getTransactionByBlockHashAndIndex)", function(done) {
+      var badBlockHash = "0xaaaaaaeb03ec5e3c000d150df2c9e7ffc31e728d12aaaedc5f6cccaca5aaaaaa";
+      web3.eth.getTransactionFromBlock(badBlockHash, 0, function(err, result) {
+        if (err) return done(err);
+
+        assert.equal(result, null);
+
         done();
       });
     });
@@ -910,6 +966,60 @@ var tests = function(web3) {
         if (err) return done(err);
 
         assert.equal(result.length, (new Date().getTime() + "").length, "net_version result doesn't appear to be similar in length the current time as an integer")
+        done();
+      });
+    });
+  });
+
+  describe("personal_newAccount", function() {
+    it("should return the new address", function(done) {
+      web3.personal.newAccount("password", function(err, result) {
+        if (err) return done(err);
+        assert.notEqual(result.match("0x[0-9a-f]{39}"), null, "Invalid address received");
+        done();
+      });
+    });
+  });
+
+  describe("personal_listAccounts", function() {
+    it("should return more than 0 accounts", function(done) {
+      web3.personal.getListAccounts(function(err, result) {
+        if (err) return done(err);
+        assert.equal(result.length, 2);
+        done();
+      });
+    });
+  });
+
+  describe("personal_unlockAccount", function() {
+    it("should unlock account", function(done) {
+      web3.personal.unlockAccount(personalAccount, "password", function(err, result) {
+        if (err) return done(err);
+        assert.equal(result, true);
+        done();
+      });
+    });
+  });
+
+  describe("personal_lockAccount", function() {
+    it("should lock account", function(done) {
+      web3.personal.lockAccount(personalAccount, function(err, result) {
+        if (err) return done(err);
+        assert.equal(result, true);
+        done();
+      });
+    });
+  });
+
+  describe("personal_sendTransaction", function() {
+    it("should send transaction", function(done) {
+      web3.personal.sendTransaction({
+        from: personalAccount,
+        to: personalAccount,
+        value: 1
+      }, "password", function(err, result) {
+        // NOTE: this is an Error class thrown by the state
+        assert.notEqual(err.message.match("sender doesn't have enough funds to send tx."), null);
         done();
       });
     });
